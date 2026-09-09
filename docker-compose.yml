@@ -1,0 +1,45 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVICE_ROLE: web
+      PORT: 10000
+      DATABASE_URL: postgresql+asyncpg://inferio:inferio@postgres:5432/inferio
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "10000:10000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:10000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVICE_ROLE: worker
+      DATABASE_URL: postgresql+asyncpg://inferio:inferio@postgres:5432/inferio
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inferio
+      POSTGRES_USER: inferio
+      POSTGRES_PASSWORD: inferio
+    volumes:
+      - inferio_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inferio -d inferio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  inferio_postgres:
